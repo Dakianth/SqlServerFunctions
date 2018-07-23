@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 using System.Text;
@@ -17,6 +18,7 @@ namespace Setup
             //Assembly systemDrawingAssembly = Assembly.LoadFrom(@"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.7.1\System.Drawing.dll");
             //string system_drawing = CreateSqlFromAssemblyDll(systemDrawingAssembly, PermissionSetType.UNSAFE);
             //File.WriteAllText(@"System.Drawing.sql", system_drawing);
+
         }
 
 
@@ -29,30 +31,32 @@ namespace Setup
         public static string CreateFunctionsFromAssembly(Assembly clrAssembly, PermissionSetType permissionSet)
         {
             const string sqlTemplate = @"
-      -- Delete all functions from assembly '{0}'
-      DECLARE @sql NVARCHAR(MAX)
-      SET @sql = 'DROP FUNCTION ' + STUFF(
-        (
-            SELECT
-                ', ' + assembly_method 
-            FROM
-                sys.assembly_modules
-            WHERE
-                assembly_id IN (SELECT assembly_id FROM sys.assemblies WHERE name = '{0}')
-            FOR XML PATH('')
-        ), 1, 1, '')
-      IF @sql IS NOT NULL EXEC sp_executesql @sql
-      GO
+ALTER  DATABASE ProlexNet SET TRUSTWORTHY ON
 
-      -- Delete existing assembly '{0}' if necessary
-      IF EXISTS(SELECT 1 FROM sys.assemblies WHERE name = '{0}')
-        DROP ASSEMBLY {0};
-      GO
+-- Delete all functions from assembly '{0}'
+DECLARE @sql NVARCHAR(MAX)
+SET @sql = 'DROP FUNCTION ' + STUFF(
+(
+    SELECT
+        ', ' + assembly_method 
+    FROM
+        sys.assembly_modules
+    WHERE
+        assembly_id IN (SELECT assembly_id FROM sys.assemblies WHERE name = '{0}')
+    FOR XML PATH('')
+), 1, 1, '')
+IF @sql IS NOT NULL EXEC sp_executesql @sql
+GO
 
-      {1}
-      GO
+-- Delete existing assembly '{0}' if necessary
+IF EXISTS(SELECT 1 FROM sys.assemblies WHERE name = '{0}')
+DROP ASSEMBLY {0};
+GO
 
-      -- Create all functions from assembly '{0}'
+{1}
+GO
+
+-- Create all functions from assembly '{0}'
     ";
             string assemblyName = clrAssembly.GetName().Name;
 
@@ -84,6 +88,8 @@ namespace Setup
                     }
                 }
             }
+
+            //sql.AppendLine("ALTER  DATABASE ProlexNet SET TRUSTWORTHY OFF");
             return sql.ToString();
         }
 
@@ -97,11 +103,11 @@ namespace Setup
         public static string CreateSqlFromAssemblyDll(Assembly clrAssembly, PermissionSetType permissionSet)
         {
             const string sqlTemplate = @"
-      -- Create assembly '{0}' from dll
-      CREATE ASSEMBLY [{0}] 
-        AUTHORIZATION [dbo]
-        FROM 0x{2}
-        WITH PERMISSION_SET = {1};
+-- Create assembly '{0}' from dll
+CREATE ASSEMBLY [{0}] 
+AUTHORIZATION [dbo]
+FROM 0x{2}
+WITH PERMISSION_SET = {1};
     ";
 
             StringBuilder bytes = new StringBuilder();
@@ -146,6 +152,7 @@ namespace Setup
                     return "DOUBLE";
                 case "SqlDecimal":
                     return "DECIMAL(18,0)";
+                case "SqlBytes":
                 case "SqlBinary":
                     return "VARBINARY(MAX)";
                 default:

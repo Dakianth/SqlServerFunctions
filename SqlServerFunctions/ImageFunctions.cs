@@ -15,7 +15,7 @@ namespace SqlServerFunctions
         /// <param name="type">Image target type. (1 Png;2 Jpg;3 Bmp)</param>
         /// <returns></returns>
         [SqlFunction(IsDeterministic = true, IsPrecise =true)]
-        public SqlBytes ConvertImageFormat(SqlBytes bytes, SqlInt16 type)
+        public static SqlBytes ConvertImageFormat(SqlBytes bytes, SqlInt16 type)
         {
             ImageFormat imageFormat;
             switch (type.Value)
@@ -36,7 +36,7 @@ namespace SqlServerFunctions
             using (var ms = new MemoryStream())
             {
                 Image.FromStream(bytes.Stream).Save(ms, imageFormat);
-                result = new SqlBytes(ms);
+                result = new SqlBytes(ms.ToArray());
             }
             return result;
         }
